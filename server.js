@@ -3,7 +3,7 @@ const Q=require('./questions.js'),games={},MAX=14;
 const rid=()=>Math.random().toString(36).slice(2,10);
 function view(g){const r=g.phase=='result'||g.phase=='end';
  return{code:g.code,phase:g.phase,q:g.q,round:g.round,result:r?g.result:null,
- players:Object.values(g.players).map(p=>({id:p.id,name:p.name,num:p.num,pos:p.pos,voted:p.id in g.votes}))}}
+ players:Object.values(g.players).map(p=>({id:p.id,name:p.name,av:p.av,num:p.num,pos:p.pos,voted:p.id in g.votes}))}}
 function push(g){const m=`data: ${JSON.stringify(view(g))}\n\n`;g.clients.forEach(c=>c.write(m))}
 function nextQ(g){let a=Q.map((_,i)=>i).filter(i=>!g.used.includes(i));if(!a.length){g.used=[];a=Q.map((_,i)=>i)}
  const i=a[Math.floor(Math.random()*a.length)];g.used.push(i);g.q=Q[i];g.phase='vote';g.votes={};g.result=null;g.round++}
@@ -27,10 +27,13 @@ function act(d){
   if(!(num>=1&&num<=60))return{error:'בחר מספר בין 1 ל-60'};
   if(Object.values(g.players).some(p=>p.num==num))return{error:'המספר הזה כבר תפוס, בחר אחר'};
   if(Object.keys(g.players).length>=80)return{error:'המשחק מלא'};
-  const id=rid();g.players[id]={id,name,num,pos:0};push(g);return{id}}
+  const id=rid();g.players[id]={id,name,num,av:String(d.av||'').slice(0,12),pos:0};push(g);return{id}}
  if(d.a=='start'&&host&&g.phase=='lobby'&&Object.keys(g.players).length>1)nextQ(g);
  else if(d.a=='vote'&&g.phase=='vote'&&g.players[d.id]&&g.players[d.target]){g.votes[d.id]=d.target;
   if(Object.keys(g.votes).length>=Object.keys(g.players).length)reveal(g)}
+ else if(d.a=='kick'&&host&&g.players[d.pid]){delete g.players[d.pid];delete g.votes[d.pid];
+  for(const v in g.votes)if(g.votes[v]==d.pid)delete g.votes[v];
+  const n=Object.keys(g.players).length;if(g.phase=='vote'&&n&&Object.keys(g.votes).length>=n)reveal(g)}
  else if(d.a=='reveal'&&host&&g.phase=='vote'&&Object.keys(g.votes).length)reveal(g);
  else if(d.a=='next'&&host&&g.phase=='result'){
   if(Object.values(g.players).some(p=>p.pos>=MAX))g.phase='end';else nextQ(g)}
