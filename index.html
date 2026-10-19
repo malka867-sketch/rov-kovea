@@ -47,7 +47,7 @@ button:active{transform:translateY(.15em);box-shadow:none}button:disabled{opacit
 </style></head><body><canvas id="cv"></canvas><button id="mute" onclick="toggleMute()">🔊</button><div id="app"></div><script>
 const $=id=>document.getElementById(id),app=$('app');
 const esc=s=>String(s).replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
-let S=null,sess=JSON.parse(sessionStorage.s||'null'),err='',sel=null,lastRound=0,es,form={c:'',n:'',m:'',av:''},dOpen=false;
+let S=null,sess=JSON.parse(sessionStorage.s||'null'),err='',sel=null,lastRound=0,es,form={c:'',n:'',m:'',av:''},dOpen=false,tEnd=0,lastSec=99;
 const AV=[...'🐶🐱🐼🦊🐯🦁🐵🐰🐸🐧🦄🐨🐙🦉🐢🦋👦👧👨👩🧒👴👵🦸🧙🧚🧛🤖👽🥷🎅'];
 function pickAv(a){form.av=a;document.querySelectorAll('.av').forEach(e=>e.classList.toggle('on',e.textContent==a))}
 // ---- sounds (synthesized, no files) ----
@@ -66,7 +66,7 @@ function confetti(){const c=$('cv'),x=c.getContext('2d');c.width=innerWidth;c.he
 // ---- network ----
 async function api(a,d={}){const r=await fetch('/api',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({a,code:sess&&sess.code,id:sess&&sess.id,...d})});return r.json()}
 function connect(){es&&es.close();es=new EventSource('/events?code='+sess.code);
- es.onmessage=e=>{const pv=S;S=JSON.parse(e.data);if(sess.role=='player'&&!S.players.some(p=>p.id==sess.id)){err='המארח הוציא אותך מהמשחק. אפשר להתחבר מחדש.';leave();return}if(S.round!=lastRound){lastRound=S.round;sel=null}
+ es.onmessage=e=>{const pv=S;S=JSON.parse(e.data);tEnd=Date.now()+(S.left||0);if(sess.role=='player'&&!S.players.some(p=>p.id==sess.id)){err='המארח הוציא אותך מהמשחק. אפשר להתחבר מחדש.';leave();return}if(S.round!=lastRound){lastRound=S.round;sel=null}
   if(pv){if(S.phase=='vote'&&(pv.phase!='vote'||pv.round!=S.round))SND.q();else if(S.phase=='result'&&pv.phase!='result')SND.res();
    else if(S.phase=='end'&&pv.phase!='end'){SND.win();confetti()}else if(S.phase=='lobby'&&S.players.length>pv.players.length&&sess.role=='host')SND.join()}
   render()};
@@ -111,7 +111,7 @@ function render(){if(!sess||!S)return home();
    <button class=alt ${P.length<2?'disabled':''} onclick="api('start')">התחל משחק!</button>`;
   else h+=`<h1>אתה בפנים! 🎉</h1><div class=card><div class=q>${me?(me.av||'')+' '+me.num+' · '+esc(me.name):''}</div><div class=big>מחכים שהמארח יתחיל…</div></div><div class=card>${chips}</div>`}
  else if(S.phase=='vote'){
-  h+=`<div class=card><div class=big>שאלה ${S.round}</div><div class=q>${esc(S.q)}</div></div>`;
+  h+=`<div class=card><div class=big>שאלה ${S.round} · ⏱ <span id=tm></span></div><div class=q>${esc(S.q)}</div><div class=bar><i id=tb style="width:${Math.max(0,(tEnd-Date.now())/250)}%"></i></div></div>`;
   if(host){const v=P.filter(p=>p.voted).length;h+=`<div class=card><div class=big>הצביעו: ${v} מתוך ${P.length}</div><div class=bar><i style="width:${P.length?v/P.length*100:0}%"></i></div></div>
    <button onclick="api('reveal')">הצג תוצאות</button><div class=card>${board()}</div>${manage()}`}
   else h+=`<div class=big>${sel?'הצבעת ✔ אפשר לשנות':'מי הכי מתאים? לחצו על מספר'}</div><div class=grid>`+
@@ -128,4 +128,5 @@ function render(){if(!sess||!S)return home();
  const q=$('qr');if(q&&window.QRCode)new QRCode(q,{text:location.origin+'/?c='+S.code,width:Math.min(240,innerWidth*.5),height:Math.min(240,innerWidth*.5)})}
 if(sess)connect();else render();
 setInterval(()=>{if(!sess&&$('c'))taken()},3000);
+setInterval(()=>{const tm=$('tm');if(!tm||!S||S.phase!='vote')return;const r=Math.max(0,tEnd-Date.now()),s=Math.ceil(r/1000),b=$('tb');tm.textContent=s;b.style.width=r/250+'%';b.style.background=s<=5?'#ff5a5a':'#ffd84d';if(s<=5&&s>0&&s!=lastSec)tone(s<=2?1000:800,0,.12,'square',.06);lastSec=s},200);
 </script></body></html>

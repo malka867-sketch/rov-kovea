@@ -2,12 +2,13 @@ const http=require('http'),fs=require('fs'),path=require('path');
 const Q=require('./questions.js'),games={},MAX=14;
 const rid=()=>Math.random().toString(36).slice(2,10);
 function view(g){const r=g.phase=='result'||g.phase=='end';
- return{code:g.code,phase:g.phase,q:g.q,round:g.round,result:r?g.result:null,
+ return{code:g.code,left:g.phase=='vote'?Math.max(0,g.deadline-Date.now()):0,phase:g.phase,q:g.q,round:g.round,result:r?g.result:null,
  players:Object.values(g.players).map(p=>({id:p.id,name:p.name,av:p.av,num:p.num,pos:p.pos,voted:p.id in g.votes}))}}
 function push(g){const m=`data: ${JSON.stringify(view(g))}\n\n`;g.clients.forEach(c=>c.write(m))}
 function nextQ(g){let a=Q.map((_,i)=>i).filter(i=>!g.used.includes(i));if(!a.length){g.used=[];a=Q.map((_,i)=>i)}
- const i=a[Math.floor(Math.random()*a.length)];g.used.push(i);g.q=Q[i];g.phase='vote';g.votes={};g.result=null;g.round++}
-function reveal(g){const cnt={},mv={};
+ const i=a[Math.floor(Math.random()*a.length)];g.used.push(i);g.q=Q[i];g.phase='vote';g.votes={};g.result=null;g.round++;g.deadline=Date.now()+25000;clearTimeout(g.timer);
+ const r=g.round;g.timer=setTimeout(()=>{if(g.phase=='vote'&&g.round==r){reveal(g);push(g)}},25000)}
+function reveal(g){clearTimeout(g.timer);const cnt={},mv={};
  Object.values(g.votes).forEach(t=>cnt[t]=(cnt[t]||0)+1);
  const max=Math.max(0,...Object.values(cnt));
  const win=Object.keys(cnt).filter(t=>cnt[t]==max&&max>0);
